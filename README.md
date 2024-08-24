@@ -1,3 +1,3 @@
 # Noticer
 
-TODO
+To send notice information to specify platform
