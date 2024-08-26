@@ -1,4 +1,4 @@
-use chrono::{DateTime, Local};
+use chrono::{DateTime, Datelike, Local, Timelike};
 
 const ONE_DAY_MINUTE: u32 = 1440;
 
@@ -12,14 +12,14 @@ pub struct Task {
     // task schedule parameters
 
     // expect times less than 0 stands for unlimited execute times
-    expect_times: i32,
-    month: u16,
-    day: u32,
-    weekday: u8,
-    timepoint: u32,
-    time_gap: u32,
-    duration_start: u32,
-    duration_end: u32,
+    expect_times: Option<i32>,
+    month: Option<u16>,
+    day: Option<u32>,
+    weekday: Option<u8>,
+    timepoint: Option<u32>,
+    time_gap: Option<u32>,
+    duration_start: Option<u32>,
+    duration_end: Option<u32>,
     execute_times: i32,
     last_execute_at: DateTime<Local>,
 }
@@ -28,7 +28,6 @@ impl Task {
     pub fn new(name: &str) -> Task {
         Task {
             name: name.into(),
-            expect_times: -1,
             ..Default::default()
         }
     }
@@ -47,23 +46,38 @@ impl Task {
         &self.description
     }
     pub fn set_month(&mut self, month: usize) -> &mut Self {
+        let mut m = match self.month {
+            Some(m) => m,
+            None => 0,
+        };
         if month.le(&12) {
-            self.month = self.month | (1 << (month - 1));
+            m = m | (1 << (month - 1));
+            self.month = Some(m);
         }
         self
     }
-    pub fn month(&self) -> Vec<usize> {
-        let mut months = vec![];
-        for i in 0..12 {
-            if (self.month | !(1 << i)).eq(&!0) {
-                months.push(i + 1)
+    pub fn month(&self) -> Option<Vec<usize>> {
+        match self.month {
+            Some(month) => {
+                let mut months = vec![];
+                for i in 0..12 {
+                    if (month | !(1 << i)).eq(&!0) {
+                        months.push(i + 1)
+                    }
+                }
+                Some(months)
             }
+            None => None,
         }
-        months
     }
     pub fn set_weekday(&mut self, weekday: usize) -> &mut Self {
+        let mut w = match self.weekday {
+            Some(w) => w,
+            None => 0,
+        };
         if weekday.le(&7) {
-            self.weekday = self.weekday | (1 << (weekday - 1));
+            w = w | (1 << (weekday - 1));
+            self.weekday = Some(w);
         }
         self
     }
@@ -148,7 +162,14 @@ impl Task {
             return self;
         }
 
-        //
+        // get current time
+        let now = Local::now();
+        let month = now.month();
+        let day = now.day();
+        let weekday = now.weekday();
+        let hour = now.hour();
+        let miunte = now.minute();
+        let gap = now.signed_duration_since(&self.last_execute_at);
 
         // execute and update task status
         execute_task();
@@ -173,7 +194,7 @@ mod tests {
     }
     #[test]
     fn test_datetime() {
-        let task = || println!("do task");
+        let t = || {};
         let mut task = Task::new("demo");
         task.set_month(1).set_month(6).set_month(14);
         assert_eq!(vec![1, 6], task.month());
@@ -187,9 +208,9 @@ mod tests {
         assert_eq!(Some(((8, 0), (17, 0))), task.duration());
         task.set_duration_start(8, 0).set_duration_end(7, 0);
         assert_eq!(None, task.duration());
-        // task.execute(task).execute().execute();
-        // assert_eq!(3, task.execute_times());
-        // task.set_expect_times(1).execute().execute().execute();
-        // assert_eq!(1, task.execute_times());
+        task.execute(t).execute(t).execute(t);
+        assert_eq!(3, task.execute_times());
+        task.set_expect_times(1).execute(t).execute(t).execute(t);
+        assert_eq!(1, task.execute_times());
     }
 }
