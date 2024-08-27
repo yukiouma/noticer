@@ -16,8 +16,7 @@ pub struct Task {
     weekday: Option<u8>,
     timepoint: Option<u32>,
     time_gap: Option<u32>,
-    duration_start: Option<u32>,
-    duration_end: Option<u32>,
+    duration: Option<(u32, u32)>,
     execute_times: i32,
     last_execute_at: Option<DateTime<Local>>,
 }
@@ -66,9 +65,7 @@ impl Task {
     }
     pub fn match_month(&self, month: u32) -> bool {
         match self.month {
-            Some(m) => {
-                (m | !(1 << month-1)).eq(&!0)
-            },
+            Some(m) => (m | !(1 << month - 1)).eq(&!0),
             None => true,
         }
     }
@@ -95,17 +92,13 @@ impl Task {
     }
     pub fn match_weekday(&self, weekday: u32) -> bool {
         match self.weekday {
-            Some(w) => {
-                (w | !(1 << weekday-1)).eq(&!0)
-            },
+            Some(w) => (w | !(1 << weekday - 1)).eq(&!0),
             None => true,
         }
     }
     pub fn set_day(&mut self, day: u32) -> &mut Self {
         let mut d = match self.day {
-            Some(d) => {
-                d
-            },
+            Some(d) => d,
             None => 0,
         };
         if day.le(&31) {
@@ -126,9 +119,7 @@ impl Task {
     }
     pub fn match_day(&self, day: u32) -> bool {
         match self.day {
-            Some(d) => {
-                (d | !(1 << day-1)).eq(&!0)
-            },
+            Some(d) => (d | !(1 << day - 1)).eq(&!0),
             None => true,
         }
     }
@@ -142,31 +133,35 @@ impl Task {
         let minute = timepoint % 60;
         Some((hour, minute))
     }
+
+    pub fn match_timepoint(&self, hour: u32, minute: u32) -> bool {
+        match self.timepoint {
+            Some(t) => t == hour * 60 + minute,
+            None => true,
+        }
+    }
+
     pub fn set_time_gap(&mut self, time_gap: u32) -> &mut Self {
         if time_gap.le(&ONE_DAY_MINUTE) {
             self.time_gap = Some(time_gap);
         }
         self
     }
-    pub fn set_duration_start(&mut self, hour: u32, minute: u32) -> &mut Self {
-        let timepoint = hour * 60 + minute;
-        if timepoint.le(&ONE_DAY_MINUTE) {
-            self.duration_start = Some(timepoint);
-        }
-        self
-    }
 
-    pub fn set_duration_end(&mut self, hour: u32, minute: u32) -> &mut Self {
-        let timepoint = hour * 60 + minute;
-        if timepoint.le(&ONE_DAY_MINUTE) {
-            self.duration_end = Some(timepoint);
+    pub fn set_duration(&mut self, start: (u32, u32), end: (u32, u32)) -> &mut Self {
+        let start = start.0 * 60 + start.1;
+        let end = end.0 * 60 + end.1;
+        if start.gt(&ONE_DAY_MINUTE) || end.gt(&ONE_DAY_MINUTE) || start.gt(&end) {
+            return self;
         }
+        self.duration = Some((start, end));
         self
     }
 
     pub fn duration(&self) -> Option<((u32, u32), (u32, u32))> {
-        let duration_start = self.duration_start?;
-        let duration_end = self.duration_end?;
+        let duration = self.duration?;
+        let duration_start = duration.0;
+        let duration_end = duration.1;
         if duration_end.lt(&duration_start) {
             None
         } else {
@@ -177,52 +172,59 @@ impl Task {
         }
     }
 
+    pub fn match_duration(&self, hour: u32, minute: u32) -> bool {
+        match self.duration {
+            Some(duration) => {
+                let timepoint = hour * 60 + minute;
+                timepoint.ge(&duration.0) && timepoint.le(&duration.1)
+            }
+            None => true,
+        }
+    }
+
     pub fn set_expect_times(&mut self, times: i32) -> &mut Self {
         self.execute_times = 0;
         self.expect_times = Some(times);
         self
     }
 
+    pub fn less_expect_times(&self) -> bool {
+        match self.expect_times {
+            Some(expect_times) => expect_times.gt(&self.execute_times),
+            None => true,
+        }
+    }
+
     pub fn execute<F>(&mut self, execute_task: F) -> &mut Self
     where
         F: FnOnce(),
     {
-        //  limited execute times
-        if let Some(expect_times) = self.expect_times {
-            if expect_times.gt(&0) && self.execute_times.ge(&expect_times) {
-                return self;
-            }
-        }
-        
         // get current time
         let now = Local::now();
         let month = now.month();
         let day = now.day();
         let weekday = now.weekday();
         let hour = now.hour();
-        let miunte = now.minute();
+        let minute = now.minute();
         let gap = if let Some(last_execute_at) = self.last_execute_at {
             Some(now.signed_duration_since(&last_execute_at))
         } else {
             None
         };
 
-        if !self.match_month(month) {
-            return self;
+        if self.match_month(month)
+            || self.match_day(day)
+            || self.match_weekday(weekday.num_days_from_monday() + 1)
+            || self.match_duration(hour, minute)
+            || self.match_timepoint(hour, minute)
+            || self.less_expect_times()
+        {
+            // execute and update task status
+            execute_task();
+            self.execute_times += 1;
+            self.last_execute_at = Some(Local::now());
         }
 
-        if !self.match_day(day) {
-            return self;
-        }
-
-        if !self.match_weekday(weekday.num_days_from_monday() + 1) {
-            return self;
-        }
-
-        // execute and update task status
-        execute_task();
-        self.execute_times += 1;
-        self.last_execute_at = Some(Local::now());
         self
     }
     pub fn execute_times(&self) -> i32 {
@@ -257,15 +259,22 @@ mod tests {
         assert!(!task.match_day(7));
         task.set_timepoint(8, 30);
         assert_eq!(Some((8, 30)), task.timepoint());
-        task.set_duration_start(8, 0).set_duration_end(17, 0);
+        task.set_duration((8, 0), (17, 0));
         assert_eq!(Some(((8, 0), (17, 0))), task.duration());
-        task.set_duration_start(8, 0).set_duration_end(7, 0);
-        assert_eq!(None, task.duration());
     }
 
     #[test]
     fn test_execute_task() {
-        let t = || {};
+        let mut count = 0;
+        let t = || count += 1;
         let mut task = Task::new("demo");
+        task.set_weekday(1)
+            .set_weekday(2)
+            .set_weekday(3)
+            .set_weekday(4)
+            .set_weekday(5)
+            .set_expect_times(1);
+        task.execute(t);
+        assert_eq!(count, 1);
     }
 }
