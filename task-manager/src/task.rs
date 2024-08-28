@@ -2,6 +2,10 @@ use chrono::{DateTime, Datelike, Local, Timelike};
 
 const ONE_DAY_MINUTE: u32 = 1440;
 
+pub trait Executor {
+    fn execute(&mut self);
+}
+
 #[derive(Debug, Default)]
 pub struct Task {
     id: u64,
@@ -148,6 +152,20 @@ impl Task {
         self
     }
 
+    pub fn reach_gap(&self, now: &DateTime<Local>) -> bool {
+        match self.time_gap {
+            Some(gap) => {
+                if let Some(last_execute_at) = self.last_execute_at {
+                    let since = now.signed_duration_since(last_execute_at).num_minutes() as u32;
+                    since.ge(&gap)
+                } else {
+                    true
+                }
+            }
+            None => true,
+        }
+    }
+
     pub fn set_duration(&mut self, start: (u32, u32), end: (u32, u32)) -> &mut Self {
         let start = start.0 * 60 + start.1;
         let end = end.0 * 60 + end.1;
@@ -195,10 +213,7 @@ impl Task {
         }
     }
 
-    pub fn execute<F>(&mut self, execute_task: F) -> &mut Self
-    where
-        F: FnOnce(),
-    {
+    pub fn execute<T: Executor>(&mut self, executor: &mut T) -> &mut Self {
         // get current time
         let now = Local::now();
         let month = now.month();
@@ -213,14 +228,15 @@ impl Task {
         };
 
         if self.match_month(month)
-            || self.match_day(day)
-            || self.match_weekday(weekday.num_days_from_monday() + 1)
-            || self.match_duration(hour, minute)
-            || self.match_timepoint(hour, minute)
-            || self.less_expect_times()
+            && self.match_day(day)
+            && self.match_weekday(weekday.num_days_from_monday() + 1)
+            && self.match_duration(hour, minute)
+            && self.match_timepoint(hour, minute)
+            && self.less_expect_times()
+            && self.reach_gap(&now)
         {
             // execute and update task status
-            execute_task();
+            executor.execute();
             self.execute_times += 1;
             self.last_execute_at = Some(Local::now());
         }
@@ -237,10 +253,31 @@ impl Task {
 
 #[cfg(test)]
 mod tests {
+    use std::{thread, time::Duration};
+
     use super::*;
+
+    struct MockExecutor {
+        count: usize,
+    }
+
+    impl MockExecutor {
+        pub fn new() -> Self {
+            MockExecutor { count: 0 }
+        }
+        pub fn count(&self) -> usize {
+            self.count
+        }
+    }
+
+    impl Executor for MockExecutor {
+        fn execute(&mut self) {
+            self.count += 1;
+        }
+    }
+
     #[test]
     fn test_datetime() {
-        let t = || {};
         let mut task = Task::new("demo");
         task.set_month(1).set_month(6).set_month(14);
         assert_eq!(Some(vec![1, 6]), task.month());
@@ -265,16 +302,25 @@ mod tests {
 
     #[test]
     fn test_execute_task() {
-        let mut count = 0;
-        let t = || count += 1;
+        let mut t = MockExecutor::new();
         let mut task = Task::new("demo");
         task.set_weekday(1)
             .set_weekday(2)
             .set_weekday(3)
             .set_weekday(4)
             .set_weekday(5)
-            .set_expect_times(1);
-        task.execute(t);
-        assert_eq!(count, 1);
+            .set_expect_times(10)
+            .set_duration((1, 0), (17, 0))
+            .set_time_gap(1);
+        task.execute(&mut t);
+        task.execute(&mut t);
+        assert_eq!(t.count(), 1);
+
+        thread::sleep(Duration::from_secs(65));
+        task.execute(&mut t);
+        assert_eq!(t.count(), 2);
+        // task.set_duration((1, 0), (17, 0));
+        // task.execute(&mut t);
+        // assert_eq!(t.count(), 2);
     }
 }
