@@ -3,7 +3,7 @@ use sqlx::FromRow;
 
 const ONE_DAY_MINUTE: i32 = 1440;
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Task {
     id: i32,
     // task basic info
@@ -19,7 +19,7 @@ pub struct Task {
     time_gap: Option<i32>,
     duration: Option<(i32, i32)>,
     execute_times: i32,
-    last_execute_at: Option<DateTime<Local>>,
+    last_executed_at: Option<DateTime<Local>>,
 }
 
 impl Task {
@@ -152,8 +152,8 @@ impl Task {
     pub fn reach_gap(&self, now: &DateTime<Local>) -> bool {
         match self.time_gap {
             Some(gap) => {
-                if let Some(last_execute_at) = self.last_execute_at {
-                    let since = now.signed_duration_since(last_execute_at).num_minutes() as i32;
+                if let Some(last_executed_at) = self.last_executed_at {
+                    let since = now.signed_duration_since(last_executed_at).num_minutes() as i32;
                     since.ge(&gap)
                 } else {
                     true
@@ -222,8 +222,8 @@ impl Task {
         let weekday = now.weekday();
         let hour = now.hour().try_into().unwrap();
         let minute = now.minute().try_into().unwrap();
-        let gap = if let Some(last_execute_at) = self.last_execute_at {
-            Some(now.signed_duration_since(&last_execute_at))
+        let gap = if let Some(last_executed_at) = self.last_executed_at {
+            Some(now.signed_duration_since(&last_executed_at))
         } else {
             None
         };
@@ -243,7 +243,7 @@ impl Task {
     }
 
     pub fn execute(&mut self) -> &mut Self {
-        self.last_execute_at = Some(Local::now());
+        self.last_executed_at = Some(Local::now());
         self.execute_times += 1;
         self
     }
@@ -252,8 +252,8 @@ impl Task {
         self.execute_times
     }
 
-    pub fn last_execute_at(&self) -> Option<DateTime<Local>> {
-        self.last_execute_at.clone()
+    pub fn last_executed_at(&self) -> Option<DateTime<Local>> {
+        self.last_executed_at.clone()
     }
 }
 
@@ -271,7 +271,7 @@ pub struct TaskDAO {
     pub duration_start: Option<i32>,
     pub duration_end: Option<i32>,
     pub execute_times: i32,
-    pub last_execute_at: Option<DateTime<Local>>,
+    pub last_executed_at: Option<DateTime<Local>>,
 }
 
 impl From<TaskDAO> for Task {
@@ -284,7 +284,7 @@ impl From<TaskDAO> for Task {
             month: value.month,
             day: value.day,
             weekday: value.weekday,
-            timepoint: value.weekday,
+            timepoint: value.timepoint,
             time_gap: value.time_gap,
             duration: if let Some(start) = value.duration_start {
                 if let Some(end) = value.duration_end {
@@ -296,7 +296,7 @@ impl From<TaskDAO> for Task {
                 None
             },
             execute_times: value.execute_times,
-            last_execute_at: value.last_execute_at,
+            last_executed_at: value.last_executed_at,
         }
     }
 }
@@ -324,7 +324,7 @@ impl Into<TaskDAO> for Task {
                 None
             },
             execute_times: self.execute_times,
-            last_execute_at: self.last_execute_at,
+            last_executed_at: self.last_executed_at,
         }
     }
 }
