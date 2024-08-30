@@ -1,4 +1,4 @@
-use sqlx::{MySql, MySqlPool, QueryBuilder};
+use sqlx::{query, MySql, MySqlPool, QueryBuilder};
 
 use super::entity::{Task, TaskDAO};
 
@@ -10,6 +10,37 @@ impl TaskRepo {
     pub fn new(pool: MySqlPool) -> TaskRepo {
         TaskRepo { pool }
     }
+
+    pub async fn find_task_by_id(&self, id: i32) -> anyhow::Result<Option<Task>> {
+        let dao = sqlx::query_as::<_, TaskDAO>(
+            r#"
+SELECT 
+    `id`,
+    `name`, 
+    `description`, 
+    `expect_times`, 
+    `month`, 
+    `day`, 
+    `weekday`, 
+    `timepoint`, 
+    `time_gap`,
+    `duration_start`, 
+    `duration_end`, 
+    `execute_times`, 
+    `last_executed_at`
+FROM `task` 
+WHERE `id` = ?"#,
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+        if let Some(dao) = dao {
+            Ok(Some(dao.into()))
+        } else {
+            Ok(None)
+        }
+    }
+
     pub async fn list_tasks(&self) -> anyhow::Result<Vec<Task>> {
         Ok(sqlx::query_as::<_, TaskDAO>(
             r#"
@@ -35,6 +66,7 @@ FROM `task`"#,
         .map(|dao| dao.into())
         .collect::<Vec<Task>>())
     }
+
     pub async fn create_task(&self, task: &Task) -> anyhow::Result<()> {
         let mut query = QueryBuilder::<MySql>::new(
             r#"
@@ -72,6 +104,14 @@ INSERT INTO `task` (
         query.build().execute(&self.pool).await?;
         Ok(())
     }
+
+//     pub async fn update_task(&self, task: &Task) -> anyhow::Result<()> {
+//         let mut query = QueryBuilder::<MySql>::new(r#"
+// UPDATE `task`
+//         "#);
+//         query.pu
+//         Ok(())
+//     }
 }
 
 #[cfg(test)]
@@ -91,14 +131,20 @@ mod tests {
             .set_weekday(2)
             .set_weekday(3)
             .set_weekday(4)
-            .set_weekday(5);
+            .set_weekday(5)
+            .set_time_gap(40);
         repo.create_task(&new_task).await?;
         let tasks = repo.list_tasks().await?;
         assert_eq!(tasks.len(), 1);
         let task = tasks.first().unwrap();
+        let task_id = task.id();
+        let task = repo.find_task_by_id(task_id).await?;
+        assert!(task.is_some());
+        let task = task.unwrap();
         let now = Local::now();
         let weekday = now.weekday().num_days_from_monday() + 1;
         assert!(task.match_weekday(weekday.try_into().unwrap()));
+        assert!(task.ready_to_execute());
         Ok(())
     }
 }

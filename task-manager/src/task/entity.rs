@@ -15,8 +15,11 @@ pub struct Task {
     month: Option<i32>,
     day: Option<i32>,
     weekday: Option<i32>,
+    // timepoint: hours * 60 + minutes
     timepoint: Option<i32>,
+    // time gap: minute
     time_gap: Option<i32>,
+    // duration: (start hours * 60 + start minutes, end hours * 60 + end minutes)
     duration: Option<(i32, i32)>,
     execute_times: i32,
     last_executed_at: Option<DateTime<Local>>,
@@ -28,6 +31,9 @@ impl Task {
             name: name.into(),
             ..Default::default()
         }
+    }
+    pub fn id(&self) -> i32 {
+        self.id
     }
     pub fn set_name(&mut self, name: &str) -> &mut Self {
         self.name = name.into();
@@ -141,7 +147,7 @@ impl Task {
             None => true,
         }
     }
-
+    
     pub fn set_time_gap(&mut self, time_gap: i32) -> &mut Self {
         if time_gap.le(&ONE_DAY_MINUTE) {
             self.time_gap = Some(time_gap);
@@ -227,6 +233,11 @@ impl Task {
         } else {
             None
         };
+
+        // if there is not a specify timepoint nor a time gap, refuse to exeucte directly
+        if self.timepoint.is_none() && self.time_gap.is_none() {
+            return false;
+        }
 
         if self.match_month(month)
             && self.match_day(day)
@@ -368,9 +379,9 @@ mod tests {
             .set_weekday(4)
             .set_weekday(5)
             .set_expect_times(10)
-            .set_duration((1, 0), (17, 0))
-            .set_time_gap(1);
-
+            .set_duration((1, 0), (23, 0));
+        assert!(!task.ready_to_execute());
+        task.set_time_gap(1);
         assert!(task.ready_to_execute());
         task.execute();
         assert!(!task.ready_to_execute());
