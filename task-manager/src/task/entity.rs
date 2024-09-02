@@ -141,13 +141,35 @@ impl Task {
         Some((hour, minute))
     }
 
-    pub fn match_timepoint(&self, hour: i32, minute: i32) -> bool {
+    pub fn match_timepoint(&self, now: &DateTime<Local>) -> bool {
+        let now_month = now.month();
+        let now_day = now.day();
+        let now_year = now.year();
+        let now_hour = now.hour();
+        let now_minute = now.minute();
         match self.timepoint {
-            Some(t) => t == hour * 60 + minute,
+            Some(t) => {
+                let now_timpoint = (now_hour * 60 + now_minute) as i32;
+                if let Some(last_executed_at) = self.last_executed_at {
+                    let last_executed_year = last_executed_at.year();
+                    let last_executed_month = last_executed_at.month();
+                    let last_executed_day = last_executed_at.day();
+                    if last_executed_year.ge(&now_year)
+                        && last_executed_month.ge(&now_month)
+                        && last_executed_day.ge(&now_day)
+                    {
+                        false
+                    } else {
+                        t == now_timpoint
+                    }
+                } else {
+                    t == now_timpoint
+                }
+            }
             None => true,
         }
     }
-    
+
     pub fn set_time_gap(&mut self, time_gap: i32) -> &mut Self {
         if time_gap.le(&ONE_DAY_MINUTE) {
             self.time_gap = Some(time_gap);
@@ -243,7 +265,7 @@ impl Task {
             && self.match_day(day)
             && self.match_weekday((weekday.num_days_from_monday() + 1).try_into().unwrap())
             && self.match_duration(hour, minute)
-            && self.match_timepoint(hour, minute)
+            && self.match_timepoint(&now)
             && self.less_expect_times()
             && self.reach_gap(&now)
         {
@@ -344,6 +366,8 @@ impl Into<TaskDAO> for Task {
 mod tests {
     use std::{thread, time::Duration};
 
+    use crate::task;
+
     use super::*;
 
     #[test]
@@ -371,7 +395,7 @@ mod tests {
     }
 
     #[test]
-    fn test_execute_task() {
+    fn test_execute_task_gap() {
         let mut task = Task::new("demo");
         task.set_weekday(1)
             .set_weekday(2)
@@ -387,5 +411,15 @@ mod tests {
         assert!(!task.ready_to_execute());
         thread::sleep(Duration::from_secs(65));
         assert!(task.ready_to_execute());
+    }
+
+    #[test]
+    fn test_execute_task_timepoint() {
+        let mut task = Task::new("demo");
+        task.set_timepoint(4, 29);
+        assert!(task.ready_to_execute());
+        task.execute();
+        task.execute();
+        assert!(!task.ready_to_execute());
     }
 }

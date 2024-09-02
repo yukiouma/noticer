@@ -1,4 +1,4 @@
-use sqlx::{query, MySql, MySqlPool, QueryBuilder};
+use sqlx::{query, Execute, MySql, MySqlPool, QueryBuilder};
 
 use super::entity::{Task, TaskDAO};
 
@@ -105,13 +105,46 @@ INSERT INTO `task` (
         Ok(())
     }
 
-//     pub async fn update_task(&self, task: &Task) -> anyhow::Result<()> {
-//         let mut query = QueryBuilder::<MySql>::new(r#"
-// UPDATE `task`
-//         "#);
-//         query.pu
-//         Ok(())
-//     }
+    pub async fn update_task(&self, task: &Task) -> anyhow::Result<()> {
+        let task: TaskDAO = task.clone().into();
+        let query = sqlx::query(
+            r#"
+UPDATE `task` 
+SET 
+    `name` = ?, 
+    `description` = ?, 
+    `expect_times` = ?, 
+    `month` = ?,
+    `day` = ?,
+    `weekday` = ?,
+    `timepoint` = ?,
+    `time_gap` = ?,
+    `duration_start` = ?,
+    `duration_end` = ?,
+    `execute_times` = ?,
+    `last_executed_at` = ?
+WHERE
+    `id` = ?;
+        "#,
+        )
+        .bind(task.name)
+        .bind(task.description)
+        .bind(task.expect_times)
+        .bind(task.month)
+        .bind(task.day)
+        .bind(task.weekday)
+        .bind(task.timepoint)
+        .bind(task.time_gap)
+        .bind(task.duration_start)
+        .bind(task.duration_end)
+        .bind(task.execute_times)
+        .bind(task.last_executed_at)
+        .bind(task.id);
+
+        query.execute(&self.pool).await?;
+        // query.pu
+        Ok(())
+    }
 }
 
 #[cfg(test)]
@@ -140,11 +173,14 @@ mod tests {
         let task_id = task.id();
         let task = repo.find_task_by_id(task_id).await?;
         assert!(task.is_some());
-        let task = task.unwrap();
+        let mut task = task.unwrap();
         let now = Local::now();
         let weekday = now.weekday().num_days_from_monday() + 1;
         assert!(task.match_weekday(weekday.try_into().unwrap()));
         assert!(task.ready_to_execute());
+        task.execute();
+        assert!(!task.ready_to_execute());
+        repo.update_task(&task).await?;
         Ok(())
     }
 }
