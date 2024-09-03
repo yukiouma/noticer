@@ -250,11 +250,6 @@ impl Task {
         let weekday = now.weekday();
         let hour = now.hour().try_into().unwrap();
         let minute = now.minute().try_into().unwrap();
-        let gap = if let Some(last_executed_at) = self.last_executed_at {
-            Some(now.signed_duration_since(&last_executed_at))
-        } else {
-            None
-        };
 
         // if there is not a specify timepoint nor a time gap, refuse to exeucte directly
         if self.timepoint.is_none() && self.time_gap.is_none() {
@@ -365,8 +360,6 @@ impl Into<TaskDAO> for Task {
 #[cfg(test)]
 mod tests {
     use std::{thread, time::Duration};
-
-    use crate::task;
 
     use super::*;
 

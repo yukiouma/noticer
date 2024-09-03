@@ -1,4 +1,4 @@
-use sqlx::{query, Execute, MySql, MySqlPool, QueryBuilder};
+use sqlx::{MySql, MySqlPool, QueryBuilder};
 
 use super::entity::{Task, TaskDAO};
 

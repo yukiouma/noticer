@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.86"
 chrono = "0.4.38"
+executor = "0.8.4"
 sqlx = { version = "0.7.4", features = [
     "mysql",
     "runtime-tokio-native-tls",
