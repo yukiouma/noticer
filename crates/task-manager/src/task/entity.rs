@@ -23,6 +23,7 @@ pub struct Task {
     duration: Option<(i32, i32)>,
     execute_times: i32,
     last_executed_at: Option<DateTime<Local>>,
+    event_id: Option<i32>,
 }
 
 impl Task {
@@ -242,7 +243,21 @@ impl Task {
         }
     }
 
+    pub fn event_id(&self) -> Option<i32> {
+        self.event_id
+    }
+
+    pub fn set_event_id(&mut self, event_id: i32) -> &mut Self {
+        self.event_id = Some(event_id);
+        self
+    }
+
     pub fn ready_to_execute(&self) -> bool {
+        // if not event id is bound, fail fast
+        if self.event_id.is_none() {
+            return false;
+        }
+
         // get current time
         let now = Local::now();
         let month = now.month().try_into().unwrap();
@@ -299,6 +314,7 @@ pub struct TaskDAO {
     pub duration_start: Option<i32>,
     pub duration_end: Option<i32>,
     pub execute_times: i32,
+    pub event_id: Option<i32>,
     pub last_executed_at: Option<DateTime<Local>>,
 }
 
@@ -323,6 +339,7 @@ impl From<TaskDAO> for Task {
             } else {
                 None
             },
+            event_id: value.event_id,
             execute_times: value.execute_times,
             last_executed_at: value.last_executed_at,
         }
@@ -351,6 +368,7 @@ impl Into<TaskDAO> for Task {
             } else {
                 None
             },
+            event_id: self.event_id,
             execute_times: self.execute_times,
             last_executed_at: self.last_executed_at,
         }

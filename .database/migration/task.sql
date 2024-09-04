@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS `task` (
     `duration_end` INT NULL,
     `execute_times` INT NULL,
     `last_executed_at` TIMESTAMP,
+    `event_id` INT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP NOT NULL,
     `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL,
     `deleted_at` TIMESTAMP,

@@ -27,7 +27,8 @@ SELECT
     `duration_start`, 
     `duration_end`, 
     `execute_times`, 
-    `last_executed_at`
+    `last_executed_at`,
+    `event_id`
 FROM `task` 
 WHERE `id` = ?"#,
         )
@@ -57,7 +58,8 @@ SELECT
     `duration_start`, 
     `duration_end`, 
     `execute_times`, 
-    `last_executed_at`
+    `last_executed_at`,
+    `event_id`
 FROM `task`"#,
         )
         .fetch_all(&self.pool)
@@ -82,7 +84,8 @@ INSERT INTO `task` (
     `duration_start`, 
     `duration_end`, 
     `execute_times`, 
-    `last_executed_at`
+    `last_executed_at`,
+    `event_id`
 )"#,
         );
         let task: TaskDAO = task.clone().into();
@@ -99,7 +102,8 @@ INSERT INTO `task` (
                 .push_bind(task.duration_start)
                 .push_bind(task.duration_end)
                 .push_bind(task.execute_times)
-                .push_bind(task.last_executed_at);
+                .push_bind(task.last_executed_at)
+                .push_bind(task.event_id);
         });
         query.build().execute(&self.pool).await?;
         Ok(())
@@ -122,7 +126,8 @@ SET
     `duration_start` = ?,
     `duration_end` = ?,
     `execute_times` = ?,
-    `last_executed_at` = ?
+    `last_executed_at` = ?,
+    `event_id` = ?
 WHERE
     `id` = ?;
         "#,
@@ -139,6 +144,7 @@ WHERE
         .bind(task.duration_end)
         .bind(task.execute_times)
         .bind(task.last_executed_at)
+        .bind(task.event_id)
         .bind(task.id);
 
         query.execute(&self.pool).await?;
@@ -159,6 +165,7 @@ mod tests {
         let repo = TaskRepo::new(pool);
         let mut new_task = Task::new("demo");
         new_task
+            .set_event_id(1)
             .set_description("demo description")
             .set_weekday(1)
             .set_weekday(2)
