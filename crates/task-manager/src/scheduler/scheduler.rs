@@ -1,4 +1,8 @@
-use std::{thread, time::Duration};
+use std::{
+    sync::mpsc::{self, Receiver},
+    thread,
+    time::Duration,
+};
 
 use crate::TaskRepo;
 
@@ -20,15 +24,19 @@ impl<'a> Scheduler<'a> {
             .collect::<Vec<_>>();
         Ok(ready_task_id)
     }
-    pub fn run(&self) -> anyhow::Result<()> {
+    pub fn run(&self) -> anyhow::Result<Receiver<i32>> {
+        let (tx, rx) = mpsc::channel::<i32>();
         let rt = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()?;
-        loop {
-            let ready_task_id = rt.block_on(self.list_ready_task_id())?;
-            // TODO: send task id to message queue
-            println!("Sending task id: {:?} to message queue", ready_task_id);
-            thread::sleep(Duration::from_secs(10));
-        }
+        // thread::spawn(move || loop {
+        //     if let Ok(ready_task_id) = rt.block_on(self.list_ready_task_id()) {
+        //         // TODO: send task id to message queue
+        //         println!("Sending task id: {:?} to message queue", ready_task_id);
+        //         ready_task_id.iter().for_each(|id| tx.send(*id).unwrap());
+        //     };
+        //     thread::sleep(Duration::from_secs(10));
+        // });
+        Ok(rx)
     }
 }
