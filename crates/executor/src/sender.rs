@@ -1,1 +1,1 @@
-mod dingtalk;
+pub mod dingtalk;
