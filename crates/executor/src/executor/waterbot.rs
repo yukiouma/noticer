@@ -38,6 +38,7 @@ impl Executor for WaterBot {
         let runtime = Builder::new_current_thread().enable_all().build()?;
         let current_times = self.times.get();
         runtime.block_on(self.sender.send(&self.build_content()))?;
+        println!("{}", self.build_content());
         if Local::now().hour().ge(&self.reset) {
             self.times.set(0);
         } else {

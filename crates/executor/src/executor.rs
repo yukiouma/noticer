@@ -1,5 +1,8 @@
-pub mod waterbot;
+mod waterbot;
+mod manager;
 
-pub trait Executor {
+pub use manager::{new_executor_manager, WATERBOT_ID};
+
+trait Executor {
     fn execute(&self) -> anyhow::Result<()>;
 }
