@@ -1,5 +1,5 @@
-mod waterbot;
+pub mod waterbot;
 
-trait Executor {
+pub trait Executor {
     fn execute(&self) -> anyhow::Result<()>;
 }

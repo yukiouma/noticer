@@ -1,20 +1,25 @@
-use reqwest::Client;
+use reqwest::{header::CONTENT_TYPE, Client};
 use serde::{Deserialize, Serialize};
 
 pub struct DingTalkSender {
     client: Client,
+    url: String,
 }
 
 impl DingTalkSender {
-    pub fn new() -> DingTalkSender {
+    pub fn new(url: &str) -> DingTalkSender {
         let client = Client::new();
-        DingTalkSender { client }
+        DingTalkSender {
+            client,
+            url: url.into(),
+        }
     }
 
     pub async fn send(&self, content: &str) -> anyhow::Result<()> {
         let reply = self
             .client
-            .post("")
+            .post(&self.url)
+            .header(CONTENT_TYPE, "application/json")
             .json(&DingTalkRequestBody {
                 content: content.into(),
             })
