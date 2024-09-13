@@ -1,6 +1,8 @@
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde::{Deserialize, Serialize};
 
+static MESSAGE_TYPE: &str = "text";
+
 pub struct DingTalkSender {
     client: Client,
     url: String,
@@ -21,30 +23,32 @@ impl DingTalkSender {
             .post(&self.url)
             .header(CONTENT_TYPE, "application/json")
             .json(&DingTalkRequestBody {
-                content: content.into(),
+                msgtype: MESSAGE_TYPE.into(),
+                text: Text {
+                    content: content.into(),
+                },
             })
             .send()
             .await?;
-        match reply.json::<DingTalkReply>().await? {
-            DingTalkReply::Success(_) => Ok(()),
-            DingTalkReply::Failed(_) => todo!(),
-        }
+        let reply = reply.json::<DingTalkReply>().await?;
+        println!("[{}]: {}", reply.errcode, reply.errmsg);
+        Ok(())
     }
 }
 
 #[derive(Debug, Serialize)]
 pub struct DingTalkRequestBody {
-    pub content: String,
+    pub msgtype: String,
+    pub text: Text,
+}
+
+#[derive(Debug, Serialize)]
+pub struct Text {
+    content: String,
 }
 
 #[derive(Debug, Deserialize)]
-pub enum DingTalkReply {
-    Success(SuccessReply),
-    Failed(FailedReply),
+pub struct DingTalkReply {
+    pub errcode: usize,
+    pub errmsg: String,
 }
-
-#[derive(Debug, Deserialize)]
-pub struct SuccessReply {}
-
-#[derive(Debug, Deserialize)]
-pub struct FailedReply {}
