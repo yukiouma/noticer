@@ -1,3 +1,20 @@
+[package]
+name = "noticer"
+
+[[bin]]
+path = "./bin/server/manager/main.rs"
+name = "manager"
+
+[[bin]]
+path = "./bin/server/executor/main.rs"
+name = "executor"
+
+
 [workspace]
-resolver = "2"
+# resolver = "2"
 members = ["crates/executor", "crates/task-manager"]
+
+[dependencies]
+anyhow = "1.0.89"
+dotenv = "0.15.0"
+executor = { path = "crates/executor" }
