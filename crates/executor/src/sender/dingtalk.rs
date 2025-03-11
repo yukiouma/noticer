@@ -1,5 +1,6 @@
 use reqwest::{header::CONTENT_TYPE, Client};
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 
 static MESSAGE_TYPE: &str = "text";
 
@@ -31,7 +32,7 @@ impl DingTalkSender {
             .send()
             .await?;
         let reply = reply.json::<DingTalkReply>().await?;
-        println!("[{}]: {}", reply.errcode, reply.errmsg);
+        debug!("[{}]: {}", reply.errcode, reply.errmsg);
         Ok(())
     }
 }

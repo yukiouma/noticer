@@ -1,48 +1,55 @@
-use std::{cell::Cell, sync::Arc};
-
-use chrono::{Local, Timelike};
-use tokio::runtime::Builder;
-
-use crate::sender::dingtalk::DingTalkSender;
-
 use super::Executor;
+use crate::sender::dingtalk::DingTalkSender;
+use async_trait::async_trait;
+use chrono::{Datelike, Local};
+use std::{
+    ops::Deref,
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
+};
+use tracing::error;
 
 pub struct WaterBot {
     id: usize,
-    times: Cell<usize>,
+    times: AtomicUsize,
     sender: Arc<DingTalkSender>,
-    /// timepoint hour when to reset times(24 hours)
-    reset: u32,
+    day: Mutex<u32>,
 }
 
 impl WaterBot {
-    pub fn new(id: usize, sender: Arc<DingTalkSender>, reset: u32) -> Self {
+    pub fn new(id: usize, sender: Arc<DingTalkSender>) -> Self {
+        let day = Mutex::new(Local::now().day());
         WaterBot {
             id,
-            times: Cell::new(0),
+            times: AtomicUsize::new(0),
             sender,
-            reset,
+            day,
         }
     }
     pub fn id(&self) -> usize {
         self.id
     }
     fn build_content(&self) -> String {
-        let times = self.times.get() + 1;
-        format!("大家好，我是本群的【喝水提醒小助手】，这是今天的第{}轮，希望此刻看到消息的小伙伴可以和我一起喝一杯水，一小时后我会继续提醒大家喝水，和我一起成为一天喝8杯水的人！", times)
+        format!("大家好，我是本群的【喝水提醒小助手】，这是今天的第{}轮，希望此刻看到消息的小伙伴可以和我一起喝一杯水，一小时后我会继续提醒大家喝水，和我一起成为一天喝8杯水的人～", self.times.load(Ordering::Relaxed) + 1)
     }
 }
 
+#[async_trait]
 impl Executor for WaterBot {
-    fn execute(&self) -> anyhow::Result<()> {
-        let runtime = Builder::new_current_thread().enable_all().build()?;
-        let current_times = self.times.get();
-        runtime.block_on(self.sender.send(&self.build_content()))?;
-        println!("{}", self.build_content());
-        if Local::now().hour().ge(&self.reset) {
-            self.times.set(0);
+    async fn execute(&self) -> anyhow::Result<()> {
+        let content = self.build_content();
+        let sender = Arc::clone(&self.sender);
+        if let Err(err) = sender.send(&content).await {
+            error!("send message failed, because: {}", err);
+        };
+        let mut day = self.day.lock().expect("Failed to get the lock of day");
+        if Local::now().day().ne(day.deref()) {
+            self.times.store(1, Ordering::Relaxed);
+            *day = Local::now().day();
         } else {
-            self.times.set(current_times + 1);
+            self.times.fetch_add(1, Ordering::Relaxed);
         }
         Ok(())
     }

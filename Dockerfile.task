@@ -1,0 +1,30 @@
+FROM rust:bookworm AS builder
+
+WORKDIR /usr/src/app
+
+COPY .cargo/config.toml ~/.cargo/config.toml
+
+COPY . .
+
+RUN cargo build --bin task --release
+
+FROM rust-web-runtime:v0.1.0
+
+WORKDIR /app
+
+ENV http_proxy=http://127.0.0.1:7890
+ENV https_proxy=http://127.0.0.1:7890
+
+RUN apt update -y && \
+    apt install -y ca-certificates openssl &&\
+    rm -rf /var/lib/apt/lists/*
+
+ENV http_proxy=
+ENV https_proxy=
+
+COPY --from=builder /usr/src/app/target/release/task .
+
+CMD [ "/app/task" ]
+
+
+

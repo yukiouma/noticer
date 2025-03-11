@@ -1,5 +1,5 @@
+mod dao;
 mod entity;
-mod repo;
 
+pub use dao::TaskDAO;
 pub use entity::Task;
-pub use repo::TaskRepo;

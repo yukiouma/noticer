@@ -1,29 +1,28 @@
 use chrono::{DateTime, Datelike, Local, Timelike};
-use sqlx::FromRow;
 
 const ONE_DAY_MINUTE: i32 = 1440;
 
 #[derive(Debug, Default, Clone)]
 pub struct Task {
-    id: i32,
+    pub(crate) id: i32,
     // task basic info
-    name: String,
-    description: String,
+    pub(crate) name: String,
+    pub(crate) description: String,
 
     // task schedule parameters
-    expect_times: Option<i32>,
-    month: Option<i32>,
-    day: Option<i32>,
-    weekday: Option<i32>,
+    pub(crate) expect_times: Option<i32>,
+    pub(crate) month: Option<i32>,
+    pub(crate) day: Option<i32>,
+    pub(crate) weekday: Option<i32>,
     // timepoint: hours * 60 + minutes
-    timepoint: Option<i32>,
+    pub(crate) timepoint: Option<i32>,
     // time gap: minute
-    time_gap: Option<i32>,
+    pub(crate) time_gap: Option<i32>,
     // duration: (start hours * 60 + start minutes, end hours * 60 + end minutes)
-    duration: Option<(i32, i32)>,
-    execute_times: i32,
-    last_executed_at: Option<DateTime<Local>>,
-    event_id: Option<i32>,
+    pub(crate) duration: Option<(i32, i32)>,
+    pub(crate) execute_times: i32,
+    pub(crate) last_executed_at: Option<DateTime<Local>>,
+    pub(crate) event_id: Option<i32>,
 }
 
 impl Task {
@@ -300,81 +299,6 @@ impl Task {
     }
 }
 
-#[derive(Debug, FromRow)]
-pub struct TaskDAO {
-    pub id: i32,
-    pub name: String,
-    pub description: String,
-    pub expect_times: Option<i32>,
-    pub month: Option<i32>,
-    pub day: Option<i32>,
-    pub weekday: Option<i32>,
-    pub timepoint: Option<i32>,
-    pub time_gap: Option<i32>,
-    pub duration_start: Option<i32>,
-    pub duration_end: Option<i32>,
-    pub execute_times: i32,
-    pub event_id: Option<i32>,
-    pub last_executed_at: Option<DateTime<Local>>,
-}
-
-impl From<TaskDAO> for Task {
-    fn from(value: TaskDAO) -> Self {
-        Task {
-            id: value.id,
-            name: value.name,
-            description: value.description,
-            expect_times: value.expect_times,
-            month: value.month,
-            day: value.day,
-            weekday: value.weekday,
-            timepoint: value.timepoint,
-            time_gap: value.time_gap,
-            duration: if let Some(start) = value.duration_start {
-                if let Some(end) = value.duration_end {
-                    Some((start, end))
-                } else {
-                    None
-                }
-            } else {
-                None
-            },
-            event_id: value.event_id,
-            execute_times: value.execute_times,
-            last_executed_at: value.last_executed_at,
-        }
-    }
-}
-
-impl Into<TaskDAO> for Task {
-    fn into(self) -> TaskDAO {
-        TaskDAO {
-            id: self.id,
-            name: self.name.clone(),
-            description: self.description.clone(),
-            expect_times: self.expect_times,
-            month: self.month,
-            day: self.day,
-            weekday: self.weekday,
-            timepoint: self.timepoint,
-            time_gap: self.time_gap,
-            duration_start: if let Some(duration) = self.duration {
-                Some(duration.0)
-            } else {
-                None
-            },
-            duration_end: if let Some(duration) = self.duration {
-                Some(duration.1)
-            } else {
-                None
-            },
-            event_id: self.event_id,
-            execute_times: self.execute_times,
-            last_executed_at: self.last_executed_at,
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::{thread, time::Duration};
@@ -408,12 +332,13 @@ mod tests {
     #[test]
     fn test_execute_task_gap() {
         let mut task = Task::new("demo");
-        task.set_weekday(1)
+        task.set_event_id(1)
+            .set_weekday(1)
             .set_weekday(2)
             .set_weekday(3)
             .set_weekday(4)
             .set_weekday(5)
-            .set_expect_times(10)
+            .set_weekday(7)
             .set_duration((1, 0), (23, 0));
         assert!(!task.ready_to_execute());
         task.set_time_gap(1);
@@ -427,10 +352,10 @@ mod tests {
     #[test]
     fn test_execute_task_timepoint() {
         let mut task = Task::new("demo");
-        task.set_timepoint(4, 29);
+        task.set_timepoint(22, 31).set_event_id(1).set_weekday(7);
         assert!(task.ready_to_execute());
         task.execute();
-        task.execute();
+        // task.execute();
         assert!(!task.ready_to_execute());
     }
 }

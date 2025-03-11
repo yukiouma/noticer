@@ -2,3 +2,4 @@
 /.vscode
 noticer.session.sql
 *.env
+/.deployment

@@ -1,12 +1,7 @@
 mod executor;
 mod sender;
+mod server;
 
-pub use executor::{new_executor_manager, WATERBOT_ID};
-
-#[test]
-fn test_executor() {
-    let executor = new_executor_manager("");
-    for _ in 0..8 {
-        executor.execute(WATERBOT_ID).unwrap();
-    }
-}
+pub use executor::{ExecutorManager, LunchBot, OaBot, WaterBot};
+pub use sender::DingTalkSender;
+pub use server::serve;

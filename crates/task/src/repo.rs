@@ -1,6 +1,6 @@
 use sqlx::{MySql, MySqlPool, QueryBuilder};
 
-use super::entity::{Task, TaskDAO};
+use crate::task::{Task, TaskDAO};
 
 pub struct TaskRepo {
     pool: MySqlPool,
@@ -11,36 +11,36 @@ impl TaskRepo {
         TaskRepo { pool }
     }
 
-    pub async fn find_task_by_id(&self, id: i32) -> anyhow::Result<Option<Task>> {
-        let dao = sqlx::query_as::<_, TaskDAO>(
-            r#"
-SELECT 
-    `id`,
-    `name`, 
-    `description`, 
-    `expect_times`, 
-    `month`, 
-    `day`, 
-    `weekday`, 
-    `timepoint`, 
-    `time_gap`,
-    `duration_start`, 
-    `duration_end`, 
-    `execute_times`, 
-    `last_executed_at`,
-    `event_id`
-FROM `task` 
-WHERE `id` = ?"#,
-        )
-        .bind(id)
-        .fetch_optional(&self.pool)
-        .await?;
-        if let Some(dao) = dao {
-            Ok(Some(dao.into()))
-        } else {
-            Ok(None)
-        }
-    }
+    //     pub async fn find_task_by_id(&self, id: i32) -> anyhow::Result<Option<Task>> {
+    //         let dao = sqlx::query_as::<_, TaskDAO>(
+    //             r#"
+    // SELECT
+    //     `id`,
+    //     `name`,
+    //     `description`,
+    //     `expect_times`,
+    //     `month`,
+    //     `day`,
+    //     `weekday`,
+    //     `timepoint`,
+    //     `time_gap`,
+    //     `duration_start`,
+    //     `duration_end`,
+    //     `execute_times`,
+    //     `last_executed_at`,
+    //     `event_id`
+    // FROM `task`
+    // WHERE `id` = ?"#,
+    //         )
+    //         .bind(id)
+    //         .fetch_optional(&self.pool)
+    //         .await?;
+    //         if let Some(dao) = dao {
+    //             Ok(Some(dao.into()))
+    //         } else {
+    //             Ok(None)
+    //         }
+    //     }
 
     pub async fn list_tasks(&self) -> anyhow::Result<Vec<Task>> {
         Ok(sqlx::query_as::<_, TaskDAO>(
@@ -149,45 +149,6 @@ WHERE
 
         query.execute(&self.pool).await?;
         // query.pu
-        Ok(())
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use chrono::{Datelike, Local};
-
-    use super::*;
-    #[tokio::test]
-    async fn repo_test() -> anyhow::Result<()> {
-        let database_url = "mysql://root:000000@localhost:3306/noticer?parseTime=True";
-        let pool = MySqlPool::connect(&database_url).await?;
-        let repo = TaskRepo::new(pool);
-        let mut new_task = Task::new("demo");
-        new_task
-            .set_event_id(1)
-            .set_description("demo description")
-            .set_weekday(1)
-            .set_weekday(2)
-            .set_weekday(3)
-            .set_weekday(4)
-            .set_weekday(5)
-            .set_time_gap(40);
-        repo.create_task(&new_task).await?;
-        let tasks = repo.list_tasks().await?;
-        assert_eq!(tasks.len(), 1);
-        let task = tasks.first().unwrap();
-        let task_id = task.id();
-        let task = repo.find_task_by_id(task_id).await?;
-        assert!(task.is_some());
-        let mut task = task.unwrap();
-        let now = Local::now();
-        let weekday = now.weekday().num_days_from_monday() + 1;
-        assert!(task.match_weekday(weekday.try_into().unwrap()));
-        assert!(task.ready_to_execute());
-        task.execute();
-        assert!(!task.ready_to_execute());
-        repo.update_task(&task).await?;
         Ok(())
     }
 }

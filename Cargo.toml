@@ -1,9 +1,10 @@
 [package]
 name = "noticer"
+edition = "2021"
 
 [[bin]]
 path = "./bin/server/manager/main.rs"
-name = "manager"
+name = "task"
 
 [[bin]]
 path = "./bin/server/executor/main.rs"
@@ -12,9 +13,24 @@ name = "executor"
 
 [workspace]
 # resolver = "2"
-members = ["crates/executor", "crates/task-manager"]
+members = ["crates/executor", "crates/task"]
 
 [dependencies]
 anyhow = "1.0.89"
 dotenv = "0.15.0"
 executor = { path = "crates/executor" }
+task = { path = "crates/task" }
+tokio = { workspace = true }
+sqlx = { workspace = true }
+
+[workspace.dependencies]
+anyhow = "1.0.86"
+chrono = "0.4.38"
+sqlx = { version = "0.7.4", features = [
+    "mysql",
+    "runtime-tokio-native-tls",
+    "chrono",
+] }
+tokio = { version = "1.40.0", features = ["full"] }
+tracing = "0.1.41"
+tracing-subscriber = "0.3.19"

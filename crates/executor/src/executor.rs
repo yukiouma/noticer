@@ -1,8 +1,14 @@
-mod waterbot;
+mod lunchbot;
 mod manager;
+mod oabot;
+mod waterbot;
+use async_trait::async_trait;
+pub use lunchbot::LunchBot;
+pub use manager::ExecutorManager;
+pub use oabot::OaBot;
+pub use waterbot::WaterBot;
 
-pub use manager::{new_executor_manager, WATERBOT_ID};
-
-trait Executor {
-    fn execute(&self) -> anyhow::Result<()>;
+#[async_trait]
+pub trait Executor {
+    async fn execute(&self) -> anyhow::Result<()>;
 }
